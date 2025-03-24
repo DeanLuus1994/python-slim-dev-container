@@ -1,0 +1,60 @@
+services:
+  python-dev:
+    container_name: ${COMPOSE_PROJECT_NAME:-python-slim-dev}
+    image: python-slim-dev-image
+    build:
+      context: ../..
+      dockerfile: .devcontainer/container/Dockerfile.dev
+      args:
+        BUILDKIT_INLINE_CACHE: ${BUILD_BUILDKIT_INLINE_CACHE:-1}
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
+        PYTHONDONTWRITEBYTECODE: ${PYTHON_DONT_WRITE_BYTECODE:-1}
+        PYTHONUNBUFFERED: ${PYTHON_UNBUFFERED:-1}
+        CCACHE_DIR: ${CCACHE_DIR_ABSOLUTE:-/.ccache}
+        CFLAGS: "-O3 -march=x86-64 -mtune=generic"
+        CXXFLAGS: "-O3 -march=x86-64 -mtune=generic"
+        LDFLAGS: "-Wl,-O1 -Wl,--as-needed"
+        CMAKE_BUILD_PARALLEL_LEVEL: ${HOST_CPUS:-4}
+      target: dev-runtime
+    env_file:
+      - ../../.env
+    volumes:
+      - ../../:/${WORKSPACE_FOLDER:-workspace}/${PROJECT_NAME:-python-slim}:cached
+      - python-ccache-volume:${CCACHE_DIR_ABSOLUTE:-/.ccache}
+      - python-pip-cache:/root/.cache/pip
+    command: ["sleep", "infinity"]
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    runtime: ${NVIDIA_RUNTIME:-runc}
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      COMPOSE_PROJECT_NAME: ${PYTHON_PROJECT_NAME:-python-slim-dev}
+      WORKSPACE_FOLDER: ${WORKSPACE_FOLDER:-workspace}
+      PROJECT_NAME: ${PROJECT_NAME:-python-slim}
+      PYTHONPATH: "/${WORKSPACE_FOLDER:-workspace}/${PROJECT_NAME:-python-slim}"
+      # Performance environment variables - aligned with codebase constants
+      NUMBA_NUM_THREADS: ${HOST_CPUS:-4}
+      OPENBLAS_NUM_THREADS: ${HOST_CPUS:-4}
+      MKL_NUM_THREADS: ${HOST_CPUS:-4}
+      OMP_NUM_THREADS: ${HOST_CPUS:-4}
+      PYTHONHASHSEED: 1
+    ports:
+      - "8888:8888"
+      - "5678:5678"
+      - "6006:6006"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api/status", "||", "exit", "0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+volumes:
+  python-ccache-volume:
+  python-pip-cache:

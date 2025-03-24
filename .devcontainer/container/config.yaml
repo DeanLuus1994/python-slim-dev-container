@@ -1,0 +1,48 @@
+build:
+  docker:
+    buildkit: ${BUILD_BUILDKIT_INLINE_CACHE:-1}
+    cache: 1
+  resources:
+    default_cores: 4
+    default_threads: 8
+    ram_disk_size: 2048
+    build_jobs: 0
+  paths:
+    build_cache: ${CCACHE_DIR_ABSOLUTE:-/ccache}
+    gpu_cache: /cuda_cache
+  cuda:
+    cache_maxsize: 2147483648
+    visible_devices: all
+    capabilities: compute,utility,graphics
+    require_version: "cuda>=11.0"
+python:
+  version: ${PYTHON_VERSION:-3.12}
+  environment:
+    hashseed: random
+    dont_write_bytecode: 0
+    unbuffered: 1
+    optimize: 2
+    faulthandler: 1
+  compiler:
+    cc: ccache gcc
+    cxx: ccache g++
+    makeflags: -j0
+  project:
+    name: ${PYTHON_PROJECT_NAME:-python-slim-dev}
+github:
+  token: ${GITHUB_PAT}
+  username: ${GITHUB_USERNAME:-DeanLuus1994}
+  email: ${GITHUB_EMAIL}
+  repositories:
+    local: ${GITHUB_LOCAL_REPOS}
+system:
+  memory:
+    swappiness: 0
+    shm_size: 8gb
+  container:
+    ipc_mode: host
+    cap_add:
+      - SYS_PTRACE
+  updated:
+    timestamp: "2025-03-24 17:01:05"
+    user: "DeanLuus1994"

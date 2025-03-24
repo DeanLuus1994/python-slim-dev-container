@@ -1,0 +1,106 @@
+{
+    "name": "Python RTX Development",
+    "dockerComposeFile": "container/docker-compose.dev.yaml",
+    "service": "python-dev",
+    "workspaceFolder": "/workspace/python-slim",
+    "remoteUser": "root",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "editor.formatOnSave": true,
+                "editor.rulers": [
+                    75
+                ],
+                "files.trimTrailingWhitespace": true,
+                "python.analysis.typeCheckingMode": "strict",
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "editor.inlineSuggest.enabled": true,
+                "github.copilot.advanced": {
+                    "length": 500,
+                    "temperature": 0.3,
+                    "topP": 1
+                },
+                "files.watcherExclude": {
+                    "**/__pycache__/**": true,
+                    "**/*.py[cod]": true,
+                    "**/*.so": true,
+                    "**/.git/objects/**": true,
+                    "**/node_modules/**": true,
+                    "**/.mypy_cache/**": true,
+                    "**/.pytest_cache/**": true
+                },
+                "search.exclude": {
+                    "**/__pycache__": true,
+                    "**/*.py[cod]": true
+                },
+                "python.analysis.cacheFolderPath": "${containerWorkspaceFolder}/.cache/pyright",
+                "python.analysis.indexing": true,
+                "python.analysis.diagnosticMode": "workspace",
+                "python.analysis.extraPaths": [
+                    "${containerWorkspaceFolder}"
+                ]
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.black-formatter",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "ms-python.debugpy",
+                "redhat.vscode-yaml"
+            ]
+        }
+    },
+    "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt && python -c \"import compileall; compileall.compile_dir('.', force=True, optimize=2, quiet=1)\"",
+    "hostRequirements": {
+        "gpu": "optional",
+        "cpus": 4,
+        "memory": "8gb",
+        "storage": "16gb"
+    },
+    "mounts": [
+        "source=python-ccache-volume,target=/ccache,type=volume",
+        "source=python-pip-cache,target=/root/.cache/pip,type=volume",
+        "source=python-pycache-volume,target=/workspace/.pycache,type=volume",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached,readonly"
+    ],
+    "containerEnv": {
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
+        "NVIDIA_REQUIRE_CUDA": "cuda>=11.0",
+        "PYTHONFAULTHANDLER": "1",
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONOPTIMIZE": "2",
+        "PYTHONHASHSEED": "random",
+        "PYTHONPYCACHEPREFIX": "/workspace/.pycache",
+        "CCACHE_DIR": "/ccache",
+        "CCACHE_COMPRESS": "1",
+        "CCACHE_COMPRESSLEVEL": "9",
+        "CCACHE_MAXSIZE": "5G",
+        "PIP_CACHE_DIR": "/root/.cache/pip",
+        "USE_CUDA": "1",
+        "CUDA_CACHE_DISABLE": "0",
+        "CUDA_CACHE_MAXSIZE": "2147483648"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {
+            "moby": true,
+            "installDockerBuildx": true,
+            "version": "latest"
+        },
+        "ghcr.io/devcontainers/features/python:1": {
+            "installTools": true,
+            "installJupyterlab": false,
+            "version": "latest"
+        },
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        }
+    },
+    "forwardPorts": [
+        5678,
+        8000
+    ],
+    "shutdownAction": "stopCompose"
+}
