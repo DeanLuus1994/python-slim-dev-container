@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 # filepath: create_workspace.py
 
+# region Imports
 import os
 import json
 import shutil
 import sys
 from pathlib import Path
+# endregion
 
+# region Helper Functions
 def create_file(path, content="# Placeholder\n"):
     """Create a file with the given content."""
     with open(path, 'w') as f:
@@ -16,7 +19,9 @@ def create_init_file(path):
     """Create an __init__.py file."""
     with open(path / "__init__.py", 'w') as f:
         f.write('"""Module initialization."""\n')
+# endregion
 
+# region Main Workspace Creation Function
 def create_workspace(base_path):
     """Create the full directory structure for the autonomous Hugging Face agent."""
     base_path = Path(base_path)
@@ -24,7 +29,7 @@ def create_workspace(base_path):
     # Create the base directory
     os.makedirs(base_path, exist_ok=True)
     
-    # Dictionary to define the directory structure
+    # region Directory Structure Definition
     structure = {
         ".devcontainer": {
             "container": ["config.yaml", "dev.dockerignore", "docker-compose.dev.yaml", "Dockerfile.dev"],
@@ -643,7 +648,9 @@ def create_workspace(base_path):
         "setup.py": None,
         "Makefile": None
     }
+    # endregion
 
+    # region File Content Templates
     readme_content = """# Autonomous Hugging Face Agent
 
 A comprehensive, future-proofed framework for building autonomous agents with Hugging Face integration.
@@ -1094,7 +1101,9 @@ updates:
       - "dependencies"
       - "automated"
 """
+    # endregion
 
+    # region Directory Structure Processing
     def process_structure(current_path, structure_dict):
         for key, value in structure_dict.items():
             path = current_path / key
@@ -1151,6 +1160,7 @@ updates:
                 else:
                     # Create other file types
                     create_file(path)
+    # endregion
 
     # Process the structure dictionary
     process_structure(base_path, structure)
@@ -1163,7 +1173,9 @@ updates:
     print("1. cd into your new workspace")
     print("2. Install dependencies: make setup")
     print("3. Start developing!")
+# endregion
 
+# region Git Repository Initialization
 def init_git_repository(path):
     """Initialize a git repository in the given path."""
     try:
@@ -1174,7 +1186,9 @@ def init_git_repository(path):
     except Exception as e:
         print(f"Failed to initialize git repository: {e}")
         return False
+# endregion
 
+# region Main Entry Point
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         # Default to one directory up when no path is provided
@@ -1187,3 +1201,4 @@ if __name__ == "__main__":
         print("Usage: python create_workspace.py [workspace_path]")
         print("If no path is provided, workspace will be created one directory up.")
         sys.exit(1)
+# endregion
