@@ -51,6 +51,19 @@ RUN --mount=type=cache,target=/root/.cache \
     find /usr/local -name '*.pyc' -delete && \
     find /usr/local -name '__pycache__' -delete
 
+# Additional dependencies (examples, replace with actual dependencies as needed)
+RUN --mount=type=cache,target=/root/.cache \
+    poetry add findpython==0.2.1 && \
+    find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
+
+RUN --mount=type=cache,target=/root/.cache \
+    poetry add build==0.10.3 && \
+    find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
+
+# Add more packages as needed in the same manner
+
 # ----------------- LEAN RUNTIME IMAGE -----------------
 FROM python-base AS runtime
 ARG USERNAME=vscode
