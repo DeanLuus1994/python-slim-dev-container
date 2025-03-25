@@ -3,7 +3,7 @@ services:
     env_file:
       - .env
     build:
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: Dockerfile
       args:
         - USERNAME=${USERNAME:-vscode}
         - USER_UID=1000

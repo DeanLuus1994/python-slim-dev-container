@@ -27,8 +27,8 @@ RUN mkdir -p $PIP_CACHE_DIR && chmod 777 $PIP_CACHE_DIR
 
 # Copy requirements files
 COPY requirements.txt /tmp/requirements.txt
-# Copy pyproject.toml for tool configuration
-COPY pyproject.toml /tmp/pyproject.toml
+# Amended: Copy pyproject.toml from the root folder (one level up)
+COPY ../pyproject.toml /tmp/pyproject.toml
 
 # Install Python packages based on DEV_MODE
 RUN --mount=type=cache,target=/tmp/.pip-cache \
