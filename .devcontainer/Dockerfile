@@ -8,47 +8,26 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     PYTHONHASHSEED=random \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VERSION=2.1.1 \
-    POETRY_NO_INTERACTION=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # ----------------- BUILDER STAGE FOR POETRY -----------------
 FROM python-base AS poetry-builder
 WORKDIR /app
 RUN --mount=type=cache,target=/var/cache/apk \
     apk add --no-cache gcc musl-dev && \
-    pip install --no-cache-dir poetry==${POETRY_VERSION}
+    pip install --no-cache-dir poetry
 
 # ----------------- DEPENDENCY BUILDER STAGE -----------------
 FROM poetry-builder AS deps-builder
 WORKDIR /app
-COPY pyproject.toml ./
+COPY pyproject.toml poetry.lock ./
 
-# Install each package separately for better layer caching and cleanup
-# Core package: PyYAML
+# Install dependencies using Poetry
 RUN --mount=type=cache,target=/root/.cache \
     poetry config virtualenvs.create false && \
-    poetry add pyyaml==6.0.2
-
-# Core package: Rich
-RUN --mount=type=cache,target=/root/.cache \
-    poetry add rich==13.9.4
-
-# Core package: Typer
-RUN --mount=type=cache,target=/root/.cache \
-    poetry add typer==0.15.2
-
-# Core package: Pydantic
-RUN --mount=type=cache,target=/root/.cache \
-    poetry add pydantic==2.10.6
-
-# Additional dependencies (examples, replace with actual dependencies as needed)
-RUN --mount=type=cache,target=/root/.cache \
-    poetry add findpython==0.6.3
-
-RUN --mount=type=cache,target=/root/.cache \
-    poetry add build==1.2.2
+    poetry install --no-dev \
+    && find /usr/local -name '*.pyc' -delete \
+    && find /usr/local -name '__pycache__' -delete
 
 # Cleanup after all dependencies are installed
 RUN find /usr/local -name '*.pyc' -delete && \
