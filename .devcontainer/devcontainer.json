@@ -12,12 +12,9 @@
 			"installZsh": true,
 			"installOhMyZsh": true,
 			"upgradePackages": false
-		},
-		"ghcr.io/devcontainers/features/ssh-server:1": {
-			"version": "latest",
-			"hostKeyPath": "/home/vscode/.ssh"
 		}
 	},
+	"remoteUser": "vscode",
 	"hostRequirements": {
 		"gpu": "optional"
 	},
