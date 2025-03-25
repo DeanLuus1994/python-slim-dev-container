@@ -13,7 +13,7 @@ fi
 # Install tomli for TOML parsing
 pip3 install tomli
 
-# Run config generation script
+# Run config generation script - changed to use the correct script
 python3 $PROJECT_ROOT/scripts/generate_config.py
 
 # Verify .env file exists

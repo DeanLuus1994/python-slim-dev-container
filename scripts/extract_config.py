@@ -13,10 +13,11 @@ def main():
     with open(pyproject_path, "rb") as f:
         pyproject = tomli.load(f)
     
-    container_config = pyproject.get("tool", {}).get("container", {})
+    # Changed from container to slimdev to match actual config section
+    container_config = pyproject.get("tool", {}).get("slimdev", {})
     
     if not container_config:
-        print("Error: No tool.container section found in pyproject.toml", file=sys.stderr)
+        print("Error: No tool.slimdev section found in pyproject.toml", file=sys.stderr)
         sys.exit(1)
     
     # Output as environment variables

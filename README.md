@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/features/actions"><img src="https://img.shields.io/github/workflow/status/username/python-slim-dev-container/Python%20CI?label=CI&logo=github&style=flat-square" alt="CI Status"></a>
-  <a href="https://www.python.org/downloads/release/python-3118/"><img src="https://img.shields.io/badge/python-3.11.8-blue.svg?style=flat-square&logo=python&logoColor=white" alt="Python Version"></a>
+  <a href="https://www.python.org/downloads/release/python-3132/"><img src="https://img.shields.io/badge/python-3.13.2-blue.svg?style=flat-square&logo=python&logoColor=white" alt="Python Version"></a>
   <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-powered-blue.svg?style=flat-square&logo=docker&logoColor=white" alt="Docker"></a>
   <a href="https://code.visualstudio.com/docs/devcontainers/containers"><img src="https://img.shields.io/badge/devcontainer-ready-green.svg?style=flat-square&logo=visualstudiocode&logoColor=white" alt="Dev Container"></a>
   <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="Code style: black"></a>
