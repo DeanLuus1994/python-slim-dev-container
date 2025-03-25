@@ -90,8 +90,9 @@ RUN echo '#!/bin/bash\nif [ ! -f ~/.ssh/id_rsa ]; then\n    mkdir -p ~/.ssh\n   
     && chown -R $USERNAME:$USERNAME /home/$USERNAME
 
 # Verify only required packages are installed and nothing else
+# Updated the package verification to use importlib.metadata instead of pkg_resources
 RUN python -c "import sys; packages=['yaml', 'rich', 'typer', 'pydantic']; missing = [p for p in packages if p not in sys.modules and __import__(p) is None]; exit(1 if missing else 0)" \
-    && python -c "import pkg_resources; installed = {pkg.key for pkg in pkg_resources.working_set}; required = {'pyyaml', 'rich', 'typer', 'pydantic'}; extra = installed - required - {'pip', 'setuptools', 'wheel', 'markupsafe', 'typing-extensions', 'click', 'pygments', 'colorama', 'commonmark'}; print(f'Extra packages: {extra}'); exit(1 if extra else 0)"
+    && python -c "from importlib.metadata import distributions; installed = {dist.metadata['Name'].lower() for dist in distributions()}; required = {'pyyaml', 'rich', 'typer', 'pydantic'}; extra = installed - required - {'pip', 'setuptools', 'wheel', 'markupsafe', 'typing-extensions', 'click', 'pygments', 'colorama', 'commonmark'}; print(f'Extra packages: {extra}'); exit(1 if extra else 0)"
 
 # Switch to non-root user
 USER $USERNAME
