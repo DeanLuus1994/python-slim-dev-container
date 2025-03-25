@@ -27,7 +27,7 @@ RUN touch poetry.lock
 # Install dependencies using Poetry
 RUN --mount=type=cache,target=/root/.cache \
     poetry config virtualenvs.create false && \
-    poetry install --no-dev \
+    poetry install \
     && find /usr/local -name '*.pyc' -delete \
     && find /usr/local -name '__pycache__' -delete
 
