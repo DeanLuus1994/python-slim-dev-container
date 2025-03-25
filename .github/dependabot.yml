@@ -1,28 +1,29 @@
-# Decomposed and enhanced Dependabot configuration
-# This configuration has been refined to work better with version pinning
 version: 2
 updates:
-  # Dev container environment updates
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      
+  # Dev container environment
   - package-ecosystem: "devcontainers"
     directory: "/"
-    target-branch: "main"
     schedule:
-      interval: "monthly"  # Less frequent for stable environment
-    commit-message:
-      prefix: "infra"
-      include: "scope"
+      interval: "monthly"
     labels:
       - "dependencies"
       - "infrastructure"
     open-pull-requests-limit: 3
-    # Only allow patch and minor updates to maintain stability
-    allow:
-      - dependency-type: "all"
-        update-type: "semver:patch"
-      - dependency-type: "all"  
-        update-type: "semver:minor"
         
-  # Core Python dependencies - more conservative updates
+  # Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -31,30 +32,4 @@ updates:
       - "dependencies"
       - "python"
     versioning-strategy: "lockfile-only"
-    open-pull-requests-limit: 5
-    allow:
-      # For pinned requirements, only allow security updates by default
-      - dependency-type: "production"
-        update-type: "security"
-    ignore:
-      # Ignore major version bumps for core dependencies
-      - dependency-name: "pydantic"
-        versions: ["2.x"]  # Example: stick with 1.x for now
-        
-  # Development dependencies - more frequent updates
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "dev-tools"
-    groups:
-      dev-dependencies:
-        patterns:
-          - "pytest*"
-          - "black"
-          - "isort"
-          - "flake8"
-          - "bandit"
     open-pull-requests-limit: 5

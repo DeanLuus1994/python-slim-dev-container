@@ -1,85 +1,50 @@
+# Pre-commit hook configuration
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-ast
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: debug-statements
+      - id: mixed-line-ending
+        args: [--fix=lf]
+  
   - repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 24.2.0
     hooks:
       - id: black
-        # Uses config from pyproject.toml [tool.black]
-
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
+  
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.0
     hooks:
-      - id: isort
-        # Uses config from pyproject.toml [tool.isort]
-
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
-    hooks:
-      - id: flake8
-        additional_dependencies: [
-          "flake8-docstrings==1.7.0",  # PEP 257 docstring checks
-          "flake8-quotes==3.3.2",      # Consistent string quotes
-          "flake8-bugbear==23.5.9",    # Additional bug catching
-        ]
-        # Config from .flake8 file - not yet centralized
+      - id: ruff
+        args: [--fix]
   
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.3.0
+    rev: v1.8.0
     hooks:
       - id: mypy
-        # Uses config from pyproject.toml [tool.mypy]
-        additional_dependencies: [
-          "types-PyYAML==6.0.12.10",
-        ]
+        additional_dependencies: ["types-PyYAML"]
   
-  - repo: https://github.com/PyCQA/pylint
-    rev: v2.17.4
-    hooks:
-      - id: pylint
-        # Uses config from pyproject.toml [tool.pylint]
-  
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.8
     hooks:
       - id: bandit
-        # Uses config from pyproject.toml [tool.bandit]
-        files: .py$
+        args: ["-c", "pyproject.toml"]
   
   - repo: https://github.com/hadolint/hadolint
     rev: v2.12.0
     hooks:
       - id: hadolint
-        name: Lint Dockerfiles
-  
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+
+  - repo: https://github.com/IamTheFij/docker-pre-commit
+    rev: v3.0.1
     hooks:
-      - id: check-yaml
-        name: Validate YAML files
-        files: \.(yml|yaml)$
-      - id: check-json
-        name: Validate JSON files
-        files: \.(json|jsonc)$
-
-  # Custom hooks for additional validations (using modular CICD scripts)
-  - repo: local
-    hooks:
-      - id: validate-docker-paths
-        name: Validate Docker Compose paths
-        entry: python3 cicd/validate_docker_paths.py
-        language: system
-        files: ^\.devcontainer/docker-compose\.yml$
-        pass_filenames: false
-
-      - id: validate-container-files
-        name: Validate container-related files
-        entry: python3 cicd/validate_container_files.py
-        language: system
-        files: ^\.devcontainer/(Dockerfile|docker-compose\.yml)$
-        pass_filenames: false
-
-      - id: validate-config-files
-        name: Validate configuration files
-        entry: python3 cicd/validate_config_files.py
-        language: system
-        files: ^(pyproject\.toml|\.flake8|\.env|\.github/dependabot\.yml)$
-        pass_filenames: false
+      - id: docker-compose-check
