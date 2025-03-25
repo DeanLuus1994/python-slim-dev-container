@@ -45,10 +45,10 @@ RUN --mount=type=cache,target=/root/.cache \
 
 # Additional dependencies (examples, replace with actual dependencies as needed)
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add findpython==0.2.1
+    poetry add findpython==0.6.3
 
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add build==0.10.3
+    poetry add build==1.2.2
 
 # Cleanup after all dependencies are installed
 RUN find /usr/local -name '*.pyc' -delete && \
