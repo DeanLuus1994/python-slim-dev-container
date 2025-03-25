@@ -10,7 +10,6 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-postgres}
-      - STORAGE=${STORAGE:-/var/lib/postgresql/data}
       - DEV_MODE=${DEV_MODE:-true}
     networks:
       - python-network
@@ -21,12 +20,12 @@ services:
     image: postgres:17.4-bookworm
     restart: unless-stopped
     volumes:
-      - postgres-data:${STORAGE:-/var/lib/postgresql/data}
+      - postgres-data:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-postgres}
-      - PGDATA=${STORAGE:-/var/lib/postgresql/data}
+      - PGDATA=/var/lib/postgresql/data
     networks:
       - python-network
     ports:
