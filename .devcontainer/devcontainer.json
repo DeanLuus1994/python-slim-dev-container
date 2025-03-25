@@ -8,17 +8,6 @@
 			"version": "latest",
 			"moby": false
 		},
-		"ghcr.io/devcontainers/features/python:1": {
-			"installTools": true,
-			"version": "3.11",
-			"optimize": true,
-			"installJupyterlab": false,
-			"installIpython": false,
-			"pipxPackages": "pipdeptree",
-			"installPipx": true,
-			"installVenv": true,
-			"upgradePackages": false
-		},
 		"ghcr.io/devcontainers/features/common-utils:2": {
 			"installZsh": true,
 			"installOhMyZsh": true,
