@@ -1,8 +1,14 @@
 # Python Slim Dev Container
 
+<!-- 
 <p align="center">
-  <img src="./assets/banner.png" alt="Python Slim Dev Container" width="90%" />
+    <picture>
+        <source type="image/avif" srcset="./assets/banner.avif">
+        <source type="image/webp" srcset="./assets/banner.webp">
+        <img src="./assets/banner.png" alt="Python Slim Dev Container" style="width: 90%;" />
+    </picture>
 </p>
+-->
 
 With a decade of experience in IT I knew nothing at all about Python or AI 2 years ago. Diving head first into the depths with deep understanding of programming logic, best practices and principles, I got lost in a whole new ever-changing and fast-paced evolving world.
 
