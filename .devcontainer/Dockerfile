@@ -1,84 +1,58 @@
 # syntax=docker/dockerfile:1.4
-# BUILDKIT=1
 
-# ----------------- INITIAL BASE PYTHON STAGE -----------------
-FROM python:3.13.2-alpine AS python-base
+# ARG for Python version ensures it must be specified
+ARG PYTHON_VERSION
+
+# Base Python image with optimization flags
+FROM python:${PYTHON_VERSION}-alpine AS python-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
     PYTHONHASHSEED=random \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PYTHONOPTIMIZE=2
 
-# ----------------- BUILDER STAGE FOR POETRY -----------------
+# Install poetry
 FROM python-base AS poetry-builder
-WORKDIR /app
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache gcc musl-dev && \
-    pip install --no-cache-dir poetry
+ARG POETRY_VERSION=1.7.1
+RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 
-# ----------------- DEPENDENCY BUILDER STAGE -----------------
+# Build dependencies
 FROM poetry-builder AS deps-builder
 WORKDIR /app
 COPY pyproject.toml ./
-# Create empty poetry.lock if it doesn't exist
-RUN touch poetry.lock
 
-# First lock dependencies, then install
+# Generate proper lock file and install dependencies
 RUN --mount=type=cache,target=/root/.cache \
     poetry config virtualenvs.create false && \
-    poetry lock && \
-    poetry install \
-    && find /usr/local -name '*.pyc' -delete \
-    && find /usr/local -name '__pycache__' -delete
-
-# Cleanup after all dependencies are installed
-RUN find /usr/local -name '*.pyc' -delete && \
+    poetry lock --no-update && \
+    poetry install $(test "$DEV_MODE" != "true" && echo "--only main") && \
+    find /usr/local -name '*.pyc' -delete && \
     find /usr/local -name '__pycache__' -delete
 
-# ----------------- LEAN RUNTIME IMAGE -----------------
+# Runtime image
 FROM python-base AS runtime
 ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# Essential runtime optimization flags
-ENV PYTHONOPTIMIZE=2 \
-    PIP_NO_CACHE_DIR=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# Copy only the installed packages from builder
+# Copy only the installed packages
 COPY --from=deps-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages/
 COPY --from=deps-builder /usr/local/bin /usr/local/bin/
 
-# Minimal system dependencies with immediate cleanup
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache \
-    sudo \
-    git \
-    ca-certificates \
-    bash \
-    && addgroup -g $USER_GID $USERNAME \
-    && adduser -D -u $USER_UID -G $USERNAME $USERNAME \
-    && echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME \
-    # Aggressive cleanup
-    && find /usr/local -name '*.pyc' -delete \
-    && find /usr/local -name '__pycache__' -delete \
-    && find /usr/local -name '*.egg-info' -exec rm -rf {} +
+# Create non-root user with sudo
+RUN apk add --no-cache sudo git bash && \
+    addgroup -g $USER_GID $USERNAME && \
+    adduser -D -u $USER_UID -G $USERNAME $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Create SSH key display script with here-doc to avoid extra layer
+# Configure SSH for development
 RUN echo '#!/bin/bash\nif [ ! -f ~/.ssh/id_rsa ]; then\n    mkdir -p ~/.ssh\n    ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "devcontainer-ssh-key" >/dev/null 2>&1\nfi\necho -e "SSH: $(cat ~/.ssh/id_rsa.pub 2>/dev/null || echo "No SSH key found")"' > /usr/local/bin/display-ssh-key \
     && chmod +x /usr/local/bin/display-ssh-key \
     && echo "display-ssh-key" >> /home/$USERNAME/.bashrc \
     && chown -R $USERNAME:$USERNAME /home/$USERNAME
 
-# Verify only required packages are installed and nothing else
-# Updated the package verification to use importlib.metadata instead of pkg_resources
-RUN python -c "import sys; packages=['yaml', 'rich', 'typer', 'pydantic']; missing = [p for p in packages if p not in sys.modules and __import__(p) is None]; exit(1 if missing else 0)" \
-    && python -c "from importlib.metadata import distributions; installed = {dist.metadata['Name'].lower() for dist in distributions()}; required = {'pyyaml', 'rich', 'typer', 'pydantic'}; extra = installed - required - {'pip', 'setuptools', 'wheel', 'markupsafe', 'typing-extensions', 'click', 'pygments', 'colorama', 'commonmark'}; print(f'Extra packages: {extra}'); exit(1 if extra else 0)"
-
-# Switch to non-root user
+COPY . /workspaces/python-slim-dev-container
+WORKDIR /workspaces/python-slim-dev-container
 USER $USERNAME
-WORKDIR /workspaces
