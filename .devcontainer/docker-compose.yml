@@ -1,50 +1,45 @@
 services:
   app:
-    env_file:
-      - .env
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-      args:
-        USER_UID: 1000
-        USER_GID: 1000
-        BUILDKIT: 1
-      cache_from:
-        - python:3.11.8-alpine
-    storage_opt:
-      size: ${STORAGE:-2G}
     volumes:
-      - ../..:/workspaces:cached
+      - ..:/workspaces/${localWorkspaceFolderBasename}:cached
     command: sleep infinity
-    network_mode: service:db
-    healthcheck:
-      test: [ "CMD", "id", "vscode" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - STORAGE=${STORAGE:-/var/lib/postgresql/data}
+      - DEV_MODE=${DEV_MODE:-true}
+    networks:
+      - python-network
+    depends_on:
+      - db
 
   db:
-    env_file:
-      - .env
-    # Use specific version and alpine for minimal size
-    image: postgres:15-alpine
+    image: postgres:17.4-bookworm
     restart: unless-stopped
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432" # Postgres
-      - "2222:22" # SSH
-      - "8000:8000" # API development
+      - postgres-data:${STORAGE:-/var/lib/postgresql/data}
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?Database user must be specified}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password must be specified}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      PGDATA: ${PGDATA:-/var/lib/postgresql/data/pgdata}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - PGDATA=${STORAGE:-/var/lib/postgresql/data}
+    networks:
+      - python-network
+    ports:
+      - "${PG_PORT:-5432}:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+networks:
+  python-network:
+    driver: bridge
 
 volumes:
   postgres-data:

@@ -2,7 +2,7 @@
 # BUILDKIT=1
 
 # ----------------- INITIAL BASE PYTHON STAGE -----------------
-FROM python:3.11.8-alpine AS python-base
+FROM python:3.13.2-alpine AS python-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
@@ -29,25 +29,25 @@ COPY pyproject.toml ./
 # Core package: PyYAML
 RUN --mount=type=cache,target=/root/.cache \
     poetry config virtualenvs.create false && \
-    poetry add pyyaml==6.0 && \
+    poetry add pyyaml==6.0.2 && \
     find /usr/local -name '*.pyc' -delete && \
     find /usr/local -name '__pycache__' -delete
 
 # Core package: Rich
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add rich==10.16.2 && \
+    poetry add rich==13.9.4 && \
     find /usr/local -name '*.pyc' -delete && \
     find /usr/local -name '__pycache__' -delete
 
 # Core package: Typer
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add typer==0.7.0 && \
+    poetry add typer==0.15.2 && \
     find /usr/local -name '*.pyc' -delete && \
     find /usr/local -name '__pycache__' -delete
 
 # Core package: Pydantic
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add pydantic==1.10.8 && \
+    poetry add pydantic==2.10.6 && \
     find /usr/local -name '*.pyc' -delete && \
     find /usr/local -name '__pycache__' -delete
 
@@ -64,7 +64,7 @@ ENV PYTHONOPTIMIZE=2 \
     PYTHONUNBUFFERED=1
 
 # Copy only the installed packages from builder
-COPY --from=deps-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages/
+COPY --from=deps-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages/
 COPY --from=deps-builder /usr/local/bin /usr/local/bin/
 
 # Minimal system dependencies with immediate cleanup
