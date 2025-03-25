@@ -29,40 +29,30 @@ COPY pyproject.toml ./
 # Core package: PyYAML
 RUN --mount=type=cache,target=/root/.cache \
     poetry config virtualenvs.create false && \
-    poetry add pyyaml==6.0.2 && \
-    find /usr/local -name '*.pyc' -delete && \
-    find /usr/local -name '__pycache__' -delete
+    poetry add pyyaml==6.0.2
 
 # Core package: Rich
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add rich==13.9.4 && \
-    find /usr/local -name '*.pyc' -delete && \
-    find /usr/local -name '__pycache__' -delete
+    poetry add rich==13.9.4
 
 # Core package: Typer
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add typer==0.15.2 && \
-    find /usr/local -name '*.pyc' -delete && \
-    find /usr/local -name '__pycache__' -delete
+    poetry add typer==0.15.2
 
 # Core package: Pydantic
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add pydantic==2.10.6 && \
-    find /usr/local -name '*.pyc' -delete && \
-    find /usr/local -name '__pycache__' -delete
+    poetry add pydantic==2.10.6
 
 # Additional dependencies (examples, replace with actual dependencies as needed)
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add findpython==0.2.1 && \
-    find /usr/local -name '*.pyc' -delete && \
-    find /usr/local -name '__pycache__' -delete
+    poetry add findpython==0.2.1
 
 RUN --mount=type=cache,target=/root/.cache \
-    poetry add build==0.10.3 && \
-    find /usr/local -name '*.pyc' -delete && \
-    find /usr/local -name '__pycache__' -delete
+    poetry add build==0.10.3
 
-# Add more packages as needed in the same manner
+# Cleanup after all dependencies are installed
+RUN find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
 
 # ----------------- LEAN RUNTIME IMAGE -----------------
 FROM python-base AS runtime
