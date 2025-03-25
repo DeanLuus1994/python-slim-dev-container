@@ -21,8 +21,8 @@
 	"hostRequirements": {
 		"gpu": "optional"
 	},
-	// User selection based on environment variable
-	"remoteUser": "${localEnv:USERNAME:vscode}",
+	// Using fixed standard user for consistency
+	"remoteUser": "vscode",
 	"customizations": {
 		"vscode": {
 			"extensions": [

@@ -3,9 +3,10 @@
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
+# Fixed username for consistency
 ARG USERNAME=vscode
 ARG USER_UID=1000
-ARG USER_GID=$USER_UID
+ARG USER_GID=1000
 ARG DEV_MODE=true
 ARG USE_ROOT_USER=false
 
@@ -15,11 +16,14 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user with sudo access
+# Create the standard non-root user
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Verify the user was created properly
+RUN id $USERNAME
 
 # Set up pip cache for both root and non-root user
 ENV PIP_CACHE_DIR=/tmp/.pip-cache
@@ -27,8 +31,8 @@ RUN mkdir -p $PIP_CACHE_DIR && chmod 777 $PIP_CACHE_DIR
 
 # Copy requirements files
 COPY requirements.txt /tmp/requirements.txt
-# Amended: Copy pyproject.toml from the root folder (one level up)
-COPY ../pyproject.toml /tmp/pyproject.toml
+# Fixed: Copy pyproject.toml from the current directory
+COPY pyproject.toml /tmp/pyproject.toml
 
 # Install Python packages based on DEV_MODE
 RUN --mount=type=cache,target=/tmp/.pip-cache \
@@ -50,5 +54,5 @@ RUN if [ "$DEV_MODE" = "true" ]; then \
     python -c "import pytest, black, isort, flake8, bandit, pipdeptree; print('Dev packages verified')"; \
     fi
 
-# Set the default user conditionally based on USE_ROOT_USER flag
-USER ${USE_ROOT_USER:+root} ${USE_ROOT_USER:-$USERNAME}
+# Always use the non-root user
+USER $USERNAME
