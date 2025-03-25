@@ -20,7 +20,9 @@ RUN --mount=type=cache,target=/var/cache/apk \
 # ----------------- DEPENDENCY BUILDER STAGE -----------------
 FROM poetry-builder AS deps-builder
 WORKDIR /app
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml ./
+# Create empty poetry.lock if it doesn't exist
+RUN touch poetry.lock
 
 # Install dependencies using Poetry
 RUN --mount=type=cache,target=/root/.cache \
