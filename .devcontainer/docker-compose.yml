@@ -1,0 +1,58 @@
+services:
+  app:
+    env_file:
+      - .env
+    build:
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        - USERNAME=${USERNAME:-vscode}
+        - USER_UID=1000
+        - USER_GID=1000
+        - DEV_MODE=${DEV_MODE:-true}
+        - USE_ROOT_USER=${USE_ROOT_USER:-false}
+    storage_opt:
+      size: 15G
+    volumes:
+      - ../..:/workspaces:cached
+    # Overrides default command to keep the container running.
+    command: sleep infinity
+    # Runs app on the same network as the database container.
+    network_mode: service:db
+
+  db:
+    env_file:
+      - .env
+    image: postgres:latest
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Port forwarding configuration moved from devcontainer.json
+    # This is better placed here as it's part of the infrastructure definition
+    # rather than the dev container configuration
+    ports:
+      - "5000:5000" # Flask default
+      - "5432:5432" # PostgreSQL default
+      - "8000:8000" # Django default
+      - "3000:3000" # React/Node.js frontend
+      - "6379:6379" # Redis (if needed)
+      - "8080:8080" # Alternative web server
+      - "9000:9000" # Debugging tools
+      - "4000:4000" # GraphQL (if needed)
+    # IMPROVED CREDENTIAL HANDLING:
+    # 1. Use environment variables from .env file
+    # 2. Validate required credentials are present
+    # 3. In production: consider using Docker secrets instead
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Database user must be specified}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password must be specified}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGDATA: ${PGDATA:-/var/lib/postgresql/data/pgdata}
+    # Add healthcheck to ensure database is running properly
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:

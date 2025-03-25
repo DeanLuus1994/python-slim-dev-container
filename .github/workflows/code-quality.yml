@@ -1,0 +1,57 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.flake8'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.flake8'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 isort bandit pylint mypy
+    
+    - name: Check formatting with black
+      run: black --check .
+      # Uses config from pyproject.toml [tool.black]
+    
+    - name: Check imports with isort
+      run: isort --check-only .
+      # Uses config from pyproject.toml [tool.isort]
+    
+    - name: Lint with flake8
+      run: flake8 .
+      # Uses config from .flake8
+    
+    - name: Type checking with mypy
+      run: mypy .
+      # Uses config from pyproject.toml [tool.mypy]
+    
+    - name: Lint with pylint
+      run: pylint $(git ls-files '*.py')
+      # Uses config from pyproject.toml [tool.pylint]
+    
+    - name: Security scan with bandit
+      run: bandit -r .
+      # Uses config from pyproject.toml [tool.bandit]
