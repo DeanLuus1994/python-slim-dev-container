@@ -18,7 +18,6 @@
 	"hostRequirements": {
 		"gpu": "optional"
 	},
-	"remoteUser": "vscode",
 	"customizations": {
 		"vscode": {
 			"extensions": [
