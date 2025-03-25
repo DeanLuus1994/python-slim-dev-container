@@ -6,10 +6,13 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
       args:
-        - USER_UID=1000
-        - USER_GID=1000
+        USER_UID: 1000
+        USER_GID: 1000
+        BUILDKIT: 1
+      cache_from:
+        - python:3.11.8-alpine
     storage_opt:
-      size: ${STORAGE:-15G}
+      size: ${STORAGE:-2G}
     volumes:
       - ../..:/workspaces:cached
     command: sleep infinity
@@ -23,12 +26,12 @@ services:
   db:
     env_file:
       - .env
-    image: postgres:latest
+    # Use specific version and alpine for minimal size
+    image: postgres:15-alpine
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      # Essential ports only
       - "5432:5432" # Postgres
       - "2222:22" # SSH
       - "8000:8000" # API development

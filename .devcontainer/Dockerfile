@@ -1,68 +1,98 @@
-# ===== Build Stage =====
-FROM python:3.11.8-slim-bullseye AS builder
+# syntax=docker/dockerfile:1.4
+# BUILDKIT=1
 
-# Set all optimization flags in one place
-ENV PYTHONOPTIMIZE=2 \
-    PIP_NO_CACHE_DIR=1
+# ----------------- INITIAL BASE PYTHON STAGE -----------------
+FROM python:3.11.8-alpine AS python-base
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_VERSION=1.7.1 \
+    POETRY_NO_INTERACTION=1
 
-# Copy Poetry configuration
-COPY pyproject.toml /tmp/pyproject.toml
+# ----------------- BUILDER STAGE FOR POETRY -----------------
+FROM python-base AS poetry-builder
+WORKDIR /app
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache gcc musl-dev && \
+    pip install --no-cache-dir poetry==${POETRY_VERSION}
 
-# Install poetry and dependencies in a single layer
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gcc \
-    python3-dev \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -sSL https://install.python-poetry.org | POETRY_HOME=/usr/local python3 - \
-    && poetry config virtualenvs.create false \
-    && cd /tmp \
-    && poetry install --only main --no-interaction --no-ansi
+# ----------------- DEPENDENCY BUILDER STAGE -----------------
+FROM poetry-builder AS deps-builder
+WORKDIR /app
+COPY pyproject.toml ./
 
-# ===== Final Stage =====
-FROM python:3.11.8-slim-bullseye
+# Install each package separately for better layer caching and cleanup
+# Core package: PyYAML
+RUN --mount=type=cache,target=/root/.cache \
+    poetry config virtualenvs.create false && \
+    poetry add pyyaml==6.0 && \
+    find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
 
+# Core package: Rich
+RUN --mount=type=cache,target=/root/.cache \
+    poetry add rich==10.16.2 && \
+    find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
+
+# Core package: Typer
+RUN --mount=type=cache,target=/root/.cache \
+    poetry add typer==0.7.0 && \
+    find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
+
+# Core package: Pydantic
+RUN --mount=type=cache,target=/root/.cache \
+    poetry add pydantic==1.10.8 && \
+    find /usr/local -name '*.pyc' -delete && \
+    find /usr/local -name '__pycache__' -delete
+
+# ----------------- LEAN RUNTIME IMAGE -----------------
+FROM python-base AS runtime
 ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# Set runtime Python optimization flags
+# Essential runtime optimization flags
 ENV PYTHONOPTIMIZE=2 \
+    PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11/
-COPY --from=builder /usr/local/bin /usr/local/bin/
+# Copy only the installed packages from builder
+COPY --from=deps-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages/
+COPY --from=deps-builder /usr/local/bin /usr/local/bin/
 
-# Create non-root user and install required dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Minimal system dependencies with immediate cleanup
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache \
     sudo \
     git \
     ca-certificates \
-    && groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    bash \
+    && addgroup -g $USER_GID $USERNAME \
+    && adduser -D -u $USER_UID -G $USERNAME $USERNAME \
+    && echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
+    # Aggressive cleanup
+    && find /usr/local -name '*.pyc' -delete \
+    && find /usr/local -name '__pycache__' -delete \
+    && find /usr/local -name '*.egg-info' -exec rm -rf {} +
 
-# Create SSH key display script (simplified)
-COPY <<-'EOF' /usr/local/bin/display-ssh-key
-#!/bin/bash
-if [ ! -f ~/.ssh/id_rsa ]; then
-    mkdir -p ~/.ssh
-    ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "devcontainer-ssh-key" >/dev/null 2>&1
-fi
-echo -e "SSH: $(cat ~/.ssh/id_rsa.pub)"
-EOF
-
-# Finalize permissions
-RUN chmod +x /usr/local/bin/display-ssh-key \
+# Create SSH key display script with here-doc to avoid extra layer
+RUN echo '#!/bin/bash\nif [ ! -f ~/.ssh/id_rsa ]; then\n    mkdir -p ~/.ssh\n    ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "devcontainer-ssh-key" >/dev/null 2>&1\nfi\necho -e "SSH: $(cat ~/.ssh/id_rsa.pub 2>/dev/null || echo "No SSH key found")"' > /usr/local/bin/display-ssh-key \
+    && chmod +x /usr/local/bin/display-ssh-key \
     && echo "display-ssh-key" >> /home/$USERNAME/.bashrc \
-    && echo "display-ssh-key" >> /home/$USERNAME/.zshrc \
-    && chown -R $USERNAME:$USERNAME /home/$USERNAME \
-    && python -c "import yaml, rich, typer, pydantic; print('Core packages verified')"
+    && chown -R $USERNAME:$USERNAME /home/$USERNAME
 
+# Verify only required packages are installed and nothing else
+RUN python -c "import sys; packages=['yaml', 'rich', 'typer', 'pydantic']; missing = [p for p in packages if p not in sys.modules and __import__(p) is None]; exit(1 if missing else 0)" \
+    && python -c "import pkg_resources; installed = {pkg.key for pkg in pkg_resources.working_set}; required = {'pyyaml', 'rich', 'typer', 'pydantic'}; extra = installed - required - {'pip', 'setuptools', 'wheel', 'markupsafe', 'typing-extensions', 'click', 'pygments', 'colorama', 'commonmark'}; print(f'Extra packages: {extra}'); exit(1 if extra else 0)"
+
+# Switch to non-root user
 USER $USERNAME
+WORKDIR /workspaces
