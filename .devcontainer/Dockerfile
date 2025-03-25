@@ -24,9 +24,10 @@ COPY pyproject.toml ./
 # Create empty poetry.lock if it doesn't exist
 RUN touch poetry.lock
 
-# Install dependencies using Poetry
+# First lock dependencies, then install
 RUN --mount=type=cache,target=/root/.cache \
     poetry config virtualenvs.create false && \
+    poetry lock && \
     poetry install \
     && find /usr/local -name '*.pyc' -delete \
     && find /usr/local -name '__pycache__' -delete
