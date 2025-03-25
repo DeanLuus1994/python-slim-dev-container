@@ -38,5 +38,5 @@
 			}
 		}
 	},
-	"postCreateCommand": "git clone ${ZSH_AUTOSUGGESTIONS_REPO:-https://github.com/zsh-users/zsh-autosuggestions.git} ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && echo 'plugins=(git docker docker-compose zsh-autosuggestions)' >> ~/.zshrc"
+	"postCreateCommand": "git clone ${ZSH_AUTOSUGGESTIONS_REPO:-https://github.com/zsh-users/zsh-autosuggestions.git} ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && echo 'plugins=(git docker docker-compose zsh-autosuggestions)' >> ~/.zshrc && echo '\\n\\n======================================================' && if [ \"$DEV_MODE\" = \"true\" ]; then echo '🚀 CONTAINER INITIALIZED IN DEV MODE'; else echo '🚀 CONTAINER INITIALIZED IN PROD MODE'; fi && echo 'Environment variables loaded:' && echo '- POSTGRES_USER: '$POSTGRES_USER && echo '- POSTGRES_DB: '$POSTGRES_DB && echo '- STORAGE: '$STORAGE && echo '======================================================\\n\\n'"
 }
