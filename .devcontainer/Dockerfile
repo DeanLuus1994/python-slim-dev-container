@@ -32,9 +32,9 @@ ENV PYTHONOPTIMIZE=2 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Copy installed packages from builder (with trailing slashes)
-COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11/ \
-    --from=builder /usr/local/bin /usr/local/bin/
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11/
+COPY --from=builder /usr/local/bin /usr/local/bin/
 
 # Create non-root user and install required dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
