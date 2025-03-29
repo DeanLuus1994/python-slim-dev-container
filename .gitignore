@@ -1,0 +1,20 @@
+**/__pycache__
+**/.git
+**/.github
+**/.gitignore
+**/.vscode
+**/coverage.xml
+**/dist
+**/htmlcov
+**/venv
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+env/
+.env
+.coverage
+.pytest_cache/
+
+# Ignore the example.env file containing sensitive information
+.devcontainer/init/example.env
