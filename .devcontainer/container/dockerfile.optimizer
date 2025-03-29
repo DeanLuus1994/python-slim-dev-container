@@ -1,0 +1,97 @@
+# syntax=docker/dockerfile:1.4
+
+FROM python:3.12-slim AS optimizer-base
+
+# Build arguments
+ARG BUILDKIT_INLINE_CACHE=1
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTHON_VERSION=3.12
+ARG DEBUG_MODE=0
+ARG WORKSPACE_ROOT=/workspace/python-slim
+
+# Set environment variables for optimization
+ENV PYTHONFAULTHANDLER=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONOPTIMIZE=2 \
+    PYTHONHASHSEED=random \
+    DEBUG_MODE=${DEBUG_MODE} \
+    PYTHONDONTWRITEBYTECODE=0 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    WORKSPACE_ROOT=${WORKSPACE_ROOT}
+
+# Install profiling and optimization tools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-dev \
+    curl \
+    ca-certificates \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install profiling tools with cache to speed up future builds
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir \
+    py-spy \
+    scalene \
+    pyinstrument \
+    debugpy \
+    memory_profiler \
+    line_profiler \
+    psutil
+
+# Copy optimization modules from the builder
+COPY --from=python-slim-builder:latest /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY .devcontainer/init /opt/init
+
+# Create workspace and debug directories
+RUN mkdir -p ${WORKSPACE_ROOT} /tmp/debug /tmp/profiles
+WORKDIR ${WORKSPACE_ROOT}
+
+# Create optimization entrypoint script
+RUN echo '#!/bin/bash\n\
+    # Set debug configuration based on environment\n\
+    if [ "$DEBUG_MODE" = "1" ]; then\n\
+    echo "Running in debug mode"\n\
+    export PYTHONTRACEMALLOC=1\n\
+    export PYTHONDEVMODE=1\n\
+    # Start debugpy server\n\
+    if [ "$DEBUGPY_ENABLE" = "1" ]; then\n\
+    echo "Starting debugpy server on port 5678"\n\
+    python -m debugpy --listen 0.0.0.0:5678 $DEBUGPY_WAIT_ARG & \n\
+    DEBUGPY_PID=$!\n\
+    echo "Debugpy started with PID $DEBUGPY_PID"\n\
+    fi\n\
+    fi\n\
+    \n\
+    # Execute with profiling if requested\n\
+    if [ "$PROFILE_MODE" = "time" ]; then\n\
+    echo "Running with time profiling"\n\
+    python -m pyinstrument "$@"\n\
+    elif [ "$PROFILE_MODE" = "memory" ]; then\n\
+    echo "Running with memory profiling"\n\
+    python -m memory_profiler "$@"\n\
+    elif [ "$PROFILE_MODE" = "cpu" ]; then\n\
+    echo "Running with CPU profiling"\n\
+    py-spy record -o /tmp/profiles/cpu_profile.svg --pid $$ -- python "$@"\n\
+    elif [ "$PROFILE_MODE" = "scalene" ]; then\n\
+    echo "Running with Scalene profiling"\n\
+    scalene "$@"\n\
+    else\n\
+    # Standard execution\n\
+    exec "$@"\n\
+    fi\n\
+    \n\
+    # Ensure debugpy is terminated if we exit\n\
+    if [ -n "$DEBUGPY_PID" ]; then\n\
+    kill $DEBUGPY_PID 2>/dev/null || true\n\
+    fi\n\
+    ' > /usr/local/bin/optimize.sh && \
+    chmod +x /usr/local/bin/optimize.sh
+
+ENTRYPOINT ["/usr/local/bin/optimize.sh"]
+CMD ["python", "-m", "compileall", "-f", "-q", "."]

@@ -1,157 +1,68 @@
 # syntax=docker/dockerfile:1.4
 
-# ========================== BUILD STAGE ==========================
-FROM python:3.12-slim AS builder
-ARG BUILDKIT_INLINE_CACHE=1
+FROM python:3.12-slim AS dev-base
+
+# Build arguments
 ARG DEBIAN_FRONTEND=noninteractive
-# Using the same compiler optimization flags as in functions/optimization/compiler.py
-ARG CFLAGS="-O3 -march=x86-64 -mtune=generic"
-ARG CXXFLAGS="-O3 -march=x86-64 -mtune=generic"
-ARG LDFLAGS="-Wl,-O1 -Wl,--as-needed"
-ARG CMAKE_BUILD_PARALLEL_LEVEL=4
+ARG PYTHON_VERSION=3.12
+ARG PYTHONDONTWRITEBYTECODE=1
+ARG PYTHONUNBUFFERED=1
+ARG WORKSPACE_ROOT=/workspace/python-slim
+ARG CCACHE_DIR=/.ccache
 
-# Set compiler flags for optimization
-ENV CFLAGS=${CFLAGS} \
-    CXXFLAGS=${CXXFLAGS} \
-    LDFLAGS=${LDFLAGS} \
-    CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL}
+# Set environment variables for development
+ENV PYTHONFAULTHANDLER=1 \
+    PYTHONUNBUFFERED=${PYTHONUNBUFFERED} \
+    PYTHONOPTIMIZE=2 \
+    PYTHONHASHSEED=random \
+    PYTHONPYCACHEPREFIX=/workspace/.pycache \
+    PYTHONDONTWRITEBYTECODE=${PYTHONDONTWRITEBYTECODE} \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    CCACHE_DIR=${CCACHE_DIR} \
+    WORKSPACE_ROOT=${WORKSPACE_ROOT} \
+    PATH="/usr/local/bin:$PATH" \
+    NUMBA_CACHE_DIR=/tmp/numba_cache \
+    MPLCONFIGDIR=/tmp/matplotlib \
+    CUDA_CACHE_PATH=/tmp/cuda_cache
 
-# Install build dependencies efficiently
+# Install development dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
     git git-lfs build-essential cmake ninja-build \
     ccache curl ca-certificates \
-    python3-dev && \
-    apt-get clean && \
+    htop procps \
+    libgomp1 \
+    python3-dev \
+    && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up ccache with optimal settings (matching setup_ccache in compiler.py)
-RUN mkdir -p /.ccache && \
-    echo "max_size = 5.0G" > /.ccache/ccache.conf && \
-    echo "compression = true" >> /.ccache/ccache.conf && \
-    echo "compression_level = 6" >> /.ccache/ccache.conf && \
-    echo "hash_dir = false" >> /.ccache/ccache.conf && \
-    echo "sloppiness = file_macro,time_macros,include_file_mtime,include_file_ctime,file_stat_matches" >> /.ccache/ccache.conf && \
-    chmod 777 /.ccache
+# Copy optimized packages from builder
+COPY --from=python-slim-builder:latest /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
-# Install Python build tools efficiently
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip setuptools wheel && \
-    pip install Cython PyYAML==6.0.1
-
-# Copy only necessary files for build with optimized ordering
-COPY .devcontainer/init/example.env /tmp/.env
-COPY .devcontainer/container/config.yaml /tmp/config.yaml
-COPY .devcontainer/init/ /tmp/init/
-
-# Run build optimizer with proper Python path handling
-RUN cd /tmp && \
-    python3 -c "import sys; sys.path.insert(0, '/tmp'); from init import main; main()"
-
-# ====================== TOOLS STAGE (OPTIONAL) ======================
-FROM python:3.12-slim AS dev-tools
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
-    --mount=type=cache,target=/var/lib/apt,sharing=private \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-    llvm clang lld valgrind strace htop sysstat gdb zsh tree && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# ========================== MINIMAL RUNTIME STAGE ==========================
-FROM python:3.12-slim AS runtime-base
-ARG WORKSPACE_ROOT=/workspace/python-slim
-ARG CCACHE_DIR=/.ccache
-ARG PYTHONDONTWRITEBYTECODE=1
-ARG PYTHONUNBUFFERED=1
-
-# Set environment variables (matching those in python_optimizer.py)
-ENV CCACHE_DIR=${CCACHE_DIR} \
-    PYTHONDONTWRITEBYTECODE=${PYTHONDONTWRITEBYTECODE} \
-    PYTHONUNBUFFERED=${PYTHONUNBUFFERED} \
-    WORKSPACE_ROOT=${WORKSPACE_ROOT} \
-    PATH="/usr/local/bin:$PATH" \
-    PYTHONHASHSEED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    NUMBA_CACHE_DIR=/tmp/numba_cache \
-    MPLCONFIGDIR=/tmp/matplotlib \
-    CUDA_CACHE_PATH=/tmp/cuda_cache
-
-# Install minimal runtime dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git curl ca-certificates htop procps \
-    libgomp1 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install minimal Python packages with optimized layer caching
+# Install additional Python packages for development
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir PyYAML==6.0.1
+    pip install --no-cache-dir PyYAML==6.0.1 jupyter notebook ipywidgets debugpy matplotlib pandas plotly
 
 # Create workspace directory with proper permissions
 RUN mkdir -p ${WORKSPACE_ROOT} ${NUMBA_CACHE_DIR} ${MPLCONFIGDIR} /tmp/cuda_cache && \
     chmod 777 ${WORKSPACE_ROOT} ${NUMBA_CACHE_DIR} ${MPLCONFIGDIR} /tmp/cuda_cache
 WORKDIR ${WORKSPACE_ROOT}
 
-# ========================== JUPYTER RUNTIME STAGE ==========================
-FROM runtime-base AS jupyter
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir jupyter notebook ipywidgets debugpy
-
-# ========================== DATA SCIENCE RUNTIME STAGE ==========================
-FROM jupyter AS datascience
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir matplotlib pandas plotly
-
-# ========================== ML RUNTIME STAGE ==========================
-FROM datascience AS ml
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch && \
-    pip install --no-cache-dir huggingface_hub rich
-
-# ========================== DEV RUNTIME STAGE ==========================
-FROM datascience AS dev-runtime
-
-# Copy necessary files for initialization
-COPY .devcontainer/init/example.env /tmp/.env
-COPY .devcontainer/container/config.yaml /tmp/config.yaml
-COPY .devcontainer/init/ /tmp/init/
-
-# Copy ccache from builder
-COPY --from=builder /.ccache /.ccache
-
-# Run initialization and cleanup with proper Python path handling
-RUN cd /tmp && \
-    python3 -c "import sys; sys.path.insert(0, '/tmp'); import init" && \
-    rm -rf /tmp/init /tmp/.env /tmp/config.yaml
-
-# Create optimized startup script with performance tuning 
-# Matching environment variables from python_optimizer.py
+# Create optimized startup script with performance tuning
 RUN echo '#!/bin/bash\n\
-    # Performance tuning based on python_optimizer.py recommendations\n\
+    # Performance tuning for Python\n\
     echo never > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || true\n\
     echo 1 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null || true\n\
     \n\
     # Setup environment for Python optimization\n\
     export PYTHONFAULTHANDLER=1\n\
     export PYTHONIOENCODING=UTF-8\n\
-    export PYTHONHASHSEED=1\n\
     \n\
-    # Run bytecode optimization if available\n\
-    if [ -f "/workspace/python-slim/.devcontainer/init/bytecode_optimizer.py" ]; then\n\
-    cd /workspace/python-slim && python -m .devcontainer.init.bytecode_optimizer --quiet || true\n\
-    elif [ -f "/workspace/python-slim/.devcontainer/init/optimize.py" ]; then\n\
-    cd /workspace/python-slim && python -m .devcontainer.init.optimize --quiet || true\n\
-    fi\n\
-    \n\
-    # Start debugpy in background - same approach as in codebase\n\
+    # Start debugpy in background\n\
     debugpy() {\n\
     python3 -c "import debugpy; debugpy.listen((\"0.0.0.0\", 5678)); print(\"Debugpy is listening on port 5678\")" &\n\
     }\n\
@@ -163,12 +74,7 @@ RUN echo '#!/bin/bash\n\
     exec "$@"' > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
 
-# Install optimized NumPy and SciPy for better performance
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir --no-binary=:all: numpy scipy
-
 # Pre-compile frequently imported modules
-# Matching list of core modules in bytecode_optimizer.py
 RUN python -c "import numpy; import pandas; import matplotlib; import json; import yaml; import os; import sys; import re; import datetime; import math; import random; import time; import functools; import itertools; import collections; import pathlib" && \
     python -m compileall -q /usr/local/lib/python*/site-packages
 

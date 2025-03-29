@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1.4
+
+FROM python:3.12-slim AS base
+
+# Build arguments
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTHON_VERSION=3.12
+ARG PYTHON_PATHS=/usr/local/lib/python3.12/site-packages
+
+# Runtime environment variables
+ENV PYTHONFAULTHANDLER=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONOPTIMIZE=2 \
+    PYTHONHASHSEED=random \
+    PYTHONPYCACHEPREFIX=/workspace/.pycache \
+    PYTHONDONTWRITEBYTECODE=0 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install minimal runtime dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libopenblas-base \
+    ca-certificates \
+    curl \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy optimized packages from builder
+COPY --from=python-slim-builder:latest /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+
+# Create entrypoint script with performance tuning
+RUN echo '#!/bin/bash\n\
+    # Performance tuning for Python\n\
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || true\n\
+    echo 1 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null || true\n\
+    \n\
+    exec "$@"\n\
+    ' > /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["python"]

@@ -1,80 +1,113 @@
-"""Function utilities for the Python slim devcontainer.
+"""
+Centralized debugging and profiling framework for Python-Slim.
 
-This package provides higher-level utilities built on top of the core module,
-including resource detection, code optimization, version control integration,
-and user interface components.
+This module provides a comprehensive debugging system that can be
+easily injected into any component of the application with minimal
+code changes.
+
+Usage:
+    # Simple activation
+    from .devcontainer.init.debug import debugger
+    debugger.setup_if_enabled()
+
+    # With specific profiling
+    from .devcontainer.init.debug import debugger
+    debugger.setup(profile_mode='memory')
+
+    # As a context manager for specific blocks
+    from .devcontainer.init.debug import profile
+    with profile('time'):
+        expensive_operation()
+
+Environment Variables:
+    DEBUG_MODE=1                # Enable debugging
+    DEBUG_PROFILE=time|memory|cpu|scalene  # Set profiling mode
+    DEBUG_LEVEL=DEBUG|INFO|WARNING|ERROR   # Set log level
+    DEBUG_OUTPUT=/path/to/file.log         # Redirect debug output
+    DEBUGPY_ENABLE=1            # Enable debugpy server
+    DEBUGPY_WAIT=1              # Wait for debugger to attach
 """
 
 import os
 import sys
-import importlib
-import compileall
+import logging
+from typing import Optional, Dict, Any, Callable, Union, Type, List
 from pathlib import Path
 
-# Compile package to bytecode at import time for better performance
-_package_dir = Path(__file__).parent
-compileall.compile_dir(
-    str(_package_dir),
-    force=True,
-    quiet=1,
-    optimize=2
+from .core import DebugCore
+from .profilers import (
+    TimeProfiler, MemoryProfiler, CPUProfiler, ScaleneProfiler, 
+    NullProfiler, Profiler
 )
+from .log import setup_debug_logger, get_debug_logger
 
-# Package metadata
-from .__about__ import (
-    __version__, __author__, __license__,
-    __description__, __url__
-)
+__version__ = "1.0.0"
+__all__ = ['debugger', 'profile', 'debug_log', 'enable_debug_server', 'configure']
 
-# Import from resource subpackage
-from .resource.detection import detect_resources, log_resources
-from .resource.gpu import detect_gpu, setup_gpu_env
+# Singleton debugger instance
+debugger = DebugCore()
 
-# Import from optimization subpackage
-from .optimization.compiler import setup_ccache, apply_compiler_flags
-from .optimization.binary import compile_python_bytecode, strip_binaries
+# Global logger
+debug_log = get_debug_logger()
 
-# Import from vcs subpackage
-from .vcs.git import setup_git_config, clone_or_update_repo, setup_lfs
-from .vcs.repository import process_solution_repo, process_local_repos
-
-# Import from ui subpackage
-from .ui.prompt import (
-    display_env_prompt, edit_env_file, color_text, green, yellow, blue
-)
-
-# Import from concurrency subpackage
-from .concurrency.executor import (
-    get_optimal_workers, get_executor, parallel_map, shutdown_executors
-)
-
-# Import exceptions
-from .exceptions import (
-    FunctionError, ResourceError, OptimizationError,
-    RepositoryError, ConcurrencyError, UserInteractionError
-)
-
-__all__ = [
-    # Metadata
-    '__version__', '__author__', '__license__', '__description__', '__url__',
+# Convenience function for profiling context
+def profile(mode: str = 'time', output_path: Optional[str] = None):
+    """Context manager for profiling specific code blocks.
     
-    # Resource detection
-    'detect_resources', 'log_resources', 'detect_gpu', 'setup_gpu_env',
+    Args:
+        mode: Profiling mode ('time', 'memory', 'cpu', 'scalene')
+        output_path: Where to save profiling results (default: auto-generated)
     
-    # Optimization
-    'setup_ccache', 'apply_compiler_flags', 'compile_python_bytecode', 'strip_binaries',
+    Example:
+        with profile('memory'):
+            expensive_operation()
+    """
+    return debugger.profile_context(mode, output_path)
+
+# Convenience function for enabling debug server
+def enable_debug_server(host: str = '0.0.0.0', port: int = 5678, 
+                       wait_for_client: bool = False):
+    """Enable the debug server for IDE integration.
     
-    # Version control
-    'setup_git_config', 'clone_or_update_repo', 'setup_lfs',
-    'process_solution_repo', 'process_local_repos',
+    Args:
+        host: Interface to listen on (default: all interfaces)
+        port: Port to listen on (default: 5678)
+        wait_for_client: Whether to pause execution until a client connects
+    """
+    return debugger.enable_debug_server(host, port, wait_for_client)
+
+def configure(config_path: Optional[str] = None, 
+             debug_mode: Optional[bool] = None,
+             profile_mode: Optional[str] = None,
+             debug_level: Optional[str] = None,
+             debug_output: Optional[str] = None):
+    """Configure debugging with specific settings.
     
-    # User interface
-    'display_env_prompt', 'edit_env_file', 'color_text', 'green', 'yellow', 'blue',
+    Args:
+        config_path: Path to custom debug YAML config
+        debug_mode: Enable or disable debugging
+        profile_mode: Set profiling mode
+        debug_level: Set log level
+        debug_output: Redirect debug output
+        
+    Returns:
+        bool: True if configuration succeeded
+    """
+    # Override configuration from environment
+    if debug_mode is not None:
+        os.environ['DEBUG_MODE'] = '1' if debug_mode else '0'
     
-    # Concurrency
-    'get_optimal_workers', 'get_executor', 'parallel_map', 'shutdown_executors',
+    if profile_mode is not None:
+        os.environ['DEBUG_PROFILE'] = profile_mode
     
-    # Exceptions
-    'FunctionError', 'ResourceError', 'OptimizationError',
-    'RepositoryError', 'ConcurrencyError', 'UserInteractionError'
-]
+    if debug_level is not None:
+        os.environ['DEBUG_LEVEL'] = debug_level
+    
+    if debug_output is not None:
+        os.environ['DEBUG_OUTPUT'] = debug_output
+    
+    # Reload configuration
+    from .config import DebugConfig
+    debugger.config = DebugConfig(config_path)
+    
+    return True
